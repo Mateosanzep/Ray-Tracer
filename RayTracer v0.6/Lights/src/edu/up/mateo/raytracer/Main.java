@@ -8,19 +8,17 @@ import javax.imageio.ImageIO;
 public class Main {
     public static void main(String[] args) {
         try {
-            Camera camera = new Camera(new Vector3D(0, 1, 4), 800, 800, (float)Math.PI/2f, 0.1f, 10000f);
+            Camera camera = new Camera(new Vector3D(0, 1, 5), 800, 800, (float)Math.PI/2f, 0.1f, 10000f);
             
             Scene scene = new Scene(camera);
             scene.setBg(Color.BLACK);
 
-            Vector3D lightPos = new Vector3D(3, 5, 2);
-            Vector3D lightDir = new Vector3D(-1, -1, -1);
-            float intensity = 4.5f;
-            float cutoffAngle = (float)Math.toRadians(45);
-            
-            Light spotLight = new Light(Color.WHITE, intensity, lightDir, lightPos, cutoffAngle);
-            
-            scene.addLight(spotLight);
+
+                DirectionalLight dirLight = new DirectionalLight(Color.WHITE, 0.2f, new Vector3D(0, 0, -1));
+                scene.addLight(dirLight);
+
+                PointLight pointLight = new PointLight(Color.WHITE, 0.4f, new Vector3D(0, 3, 8));
+                scene.addLight(pointLight);
 
             OBJReader reader = new OBJReader();
             String objPath = "car.obj";
@@ -35,9 +33,9 @@ public class Main {
             Raytracer rt = new Raytracer(scene);
             rt.render();
             
-            File output = new File("render_v04_shading.png");
+            File output = new File("render_v06_lights.png");
             ImageIO.write(rt.getImage(), "png", output);
-
+            
         } catch (IOException e) {
             System.err.println("Error on " + e.getMessage());
         }

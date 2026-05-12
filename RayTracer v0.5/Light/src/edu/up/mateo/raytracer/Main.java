@@ -8,14 +8,14 @@ import javax.imageio.ImageIO;
 public class Main {
     public static void main(String[] args) {
         try {
-            Camera camera = new Camera(new Vector3D(0, 1, 4), 800, 800, (float)Math.PI/2f, 0.1f, 10000f);
+            Camera camera = new Camera(new Vector3D(0, 1, 5), 800, 800, (float)Math.PI/2f, 0.1f, 10000f);
             
             Scene scene = new Scene(camera);
             scene.setBg(Color.BLACK);
 
-            Vector3D lightPos = new Vector3D(3, 5, 2);
-            Vector3D lightDir = new Vector3D(-1, -1, -1);
-            float intensity = 4.5f;
+            Vector3D lightPos = new Vector3D(0, 3, 8);
+            Vector3D lightDir = new Vector3D(0, -1, -1);
+            float intensity = 0.5f;
             float cutoffAngle = (float)Math.toRadians(45);
             
             Light spotLight = new Light(Color.WHITE, intensity, lightDir, lightPos, cutoffAngle);
@@ -35,7 +35,7 @@ public class Main {
             Raytracer rt = new Raytracer(scene);
             rt.render();
             
-            File output = new File("render_v04_shading.png");
+            File output = new File("render_v05_Normals.png");
             ImageIO.write(rt.getImage(), "png", output);
 
         } catch (IOException e) {
