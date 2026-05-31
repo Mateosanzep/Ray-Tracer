@@ -1,5 +1,7 @@
 package edu.up.mateosanchez.geometry;
 
-public interface Intersectable {
+import edu.up.mateosanchez.math.Ray;
 
+public interface Intersectable {
+    boolean intersect(Ray ray, double tMin, double tMax, HitRecord hitRecord);
 }
