@@ -1,18 +1,21 @@
 package edu.up.mateosanchez.geometry;
 
 import edu.up.mateosanchez.math.Vector3d;
+import edu.up.mateosanchez.materials.Material;
 import edu.up.mateosanchez.math.Ray;
 
 
 public class Sphere implements Intersectable{
     public Vector3d center;
-    double radius;
-    double radiusSquared;
+    public double radius;
+    public double radiusSquared;
+    public Material material;
 
-    public Sphere(Vector3d center, double radius) {
+    public Sphere(Vector3d center, double radius, Material material) {
         this.center = center;
         this.radius = radius;
         this.radiusSquared = radius * radius;
+        this.material = material;
     }
 
     @Override
@@ -35,6 +38,7 @@ public class Sphere implements Intersectable{
             double pcY = (hitRecord.point.y - center.y) / radius;
             double pcZ = (hitRecord.point.z - center.z) / radius;
             hitRecord.normal.set(pcX, pcY, pcZ);
+            hitRecord.material = this.material;
             return true;
         }
         else{
@@ -46,6 +50,7 @@ public class Sphere implements Intersectable{
                 double pcY = (hitRecord.point.y - center.y) / radius;
                 double pcZ = (hitRecord.point.z - center.z) / radius;
                 hitRecord.normal.set(pcX, pcY, pcZ);
+                hitRecord.material = this.material;
                 return true;
             }
         }
