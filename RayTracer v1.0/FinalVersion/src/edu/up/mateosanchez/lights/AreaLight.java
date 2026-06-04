@@ -9,8 +9,10 @@ public class AreaLight implements Light {
     public Vector3d color;
     public Vector3d normal;
     
+    // ThreadLocal storage to keep calculations thread-safe
     private final ThreadLocal<Vector3d> currentSamplePoint = ThreadLocal.withInitial(Vector3d::new);
     
+    // Attenuation coefficients
     public double constant = 1.0;
     public double linear = 0.09;
     public double quadratic = 0.032;
@@ -21,6 +23,7 @@ public class AreaLight implements Light {
         this.v = v;
         this.color = color;
         
+        // Calculate the normal of the light emitter surface
         this.normal = new Vector3d();
         u.crossProduct(v, this.normal);
         this.normal.normalize();
@@ -33,10 +36,10 @@ public class AreaLight implements Light {
         this.quadratic = quadratic;
     }
 
+    // Get direction vector pointing from the hit point to the center of the light source
     @Override
     public void getDirection(Vector3d point, Vector3d resultDirection) {
-        // CORRECCIÓN: Muestreo fijo en el centro (0.5) en lugar de Math.random()
-        // Esto elimina el ruido de Monte Carlo si no utilizas multisampling.
+        // Fixed center sampling to prevent Monte Carlo noise without multisampling
         double r1 = 0.5; 
         double r2 = 0.5;
         
@@ -59,6 +62,7 @@ public class AreaLight implements Light {
         }
     }
 
+    // Calculate light color and intensity reaching a point considering distance and angle falloff
     @Override
     public void getColor(Vector3d point, Vector3d resultColor) {
         Vector3d sample = this.currentSamplePoint.get();
@@ -77,19 +81,23 @@ public class AreaLight implements Light {
         double toPointY = dY / distance;
         double toPointZ = dZ / distance;
         
+        // Calculate cosine of the angle between the light normal and the point direction
         double cosAlpha = toPointX * this.normal.x + toPointY * this.normal.y + toPointZ * this.normal.z;
         
+        // Discard lighting if the surface points away
         if (cosAlpha <= 0.0) {
             resultColor.set(0.0, 0.0, 0.0);
             return;
         }
         
+        // Compute distance attenuation and total intensity
         double atten = 1.0 / (this.constant + this.linear * distance + this.quadratic * distance * distance);
         double intensity = cosAlpha * atten;
         
         resultColor.set(this.color.x * intensity, this.color.y * intensity, this.color.z * intensity);
     }
 
+    // Get distance from the light source center to the specified point
     @Override
     public double getDistance(Vector3d point) {
         Vector3d sample = this.currentSamplePoint.get();

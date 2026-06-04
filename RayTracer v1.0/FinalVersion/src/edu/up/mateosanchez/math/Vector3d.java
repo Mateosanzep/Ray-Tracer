@@ -39,6 +39,7 @@ public class Vector3d {
         this.z = v.z;
     }
 
+    // In-place vector addition
     public Vector3d add(Vector3d v){
         this.x = this.x + v.x;
         this.y = this.y + v.y;
@@ -47,6 +48,7 @@ public class Vector3d {
         return this;
     }
 
+    // In-place vector subtraction
     public Vector3d substract(Vector3d v){
         this.x = this.x - v.x;
         this.y = this.y - v.y;
@@ -55,6 +57,7 @@ public class Vector3d {
         return this;
     }
 
+    // In-place scalar multiplication
     public Vector3d scalarMultiply(double a){
         this.x = this.x * a;
         this.y = this.y * a;
@@ -63,15 +66,18 @@ public class Vector3d {
         return this;
     }
 
+    // Calculate the dot product between this vector and vector v
     public double dot(Vector3d v){
         return this.x * v.x + this.y * v.y + this.z * v.z;
     }
 
+    // Compute the geometric length (magnitude) of the vector
     public double magnitude(){
         double mag = Math.sqrt(dot(this));
         return mag;
     }
 
+    // Convert the vector into a unit vector with a magnitude of 1.0 safely
     public void normalize(){
         double mag = Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
         if (mag == 0.0) {
@@ -86,6 +92,7 @@ public class Vector3d {
         this.z = this.z * inv;
     }
 
+    // Compute the cross product with vector v and store it into the result vector
     public void crossProduct(Vector3d v, Vector3d result){
         result.x = (this.y * v.z) - (this.z * v.y);
         result.y = (this.z * v.x) - (this.x * v.z);

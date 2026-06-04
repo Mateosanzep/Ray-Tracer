@@ -21,16 +21,15 @@ public class Renderer {
     public BVHNode worldRoot; 
     public int samplesPerPixel = 1;
     
-    // --- CONFIGURACIÓN DE LINEAR WORKFLOW & TONE MAPPING ---
+    // Tone mapping configuration
     public enum ToneMapping {
         NONE,
         ACES
     }
     public double maxClampIntensity = 20.0; 
-    // He quitado REINHARD de la enumeración porque no se usaba y generaba confusión.
     public ToneMapping toneMapping = ToneMapping.ACES; 
 
-    // Función ACES Film tone mapping corregida para su uso.
+    // ACES Film tone mapping curve
     private double acesFilm(double x) {
         double a = 2.51;
         double b = 0.03;
@@ -51,17 +50,18 @@ public class Renderer {
         this.lights = lights;
         this.ambientIntensity = ambientIntensity;
         
-        System.out.println("Construyendo BVH espacial...");
+        System.out.println("Building spatial BVH...");
         long startTime = System.currentTimeMillis();
         this.worldRoot = new BVHNode(this.objects, 0, this.objects.size());
         long endTime = System.currentTimeMillis();
-        System.out.println("BVH construido en " + (endTime - startTime) + " ms.");
+        System.out.println("BVH built in " + (endTime - startTime) + " ms.");
     }
 
+    // Core render loop using multi-threading
     public void render(double tMin, double tMax){
         int bounces = 6;
 
-        System.out.println("Renderizando en paralelo con " + samplesPerPixel + " muestras por píxel...");
+        System.out.println("Rendering in parallel with " + samplesPerPixel + " samples per pixel...");
         
         IntStream.range(0, imagewriter.height).parallel().forEach(y -> {
             Vector3d directionBuffer = new Vector3d();
@@ -91,10 +91,12 @@ public class Renderer {
                     boolean debugPixel = (x == 640 && y == 360);
                     rayColor(ray, pixelColor, tMin, tMax, bounces, debugPixel);
 
+                    // Clean invalid values (NaN, Infinite, negative)
                     if (Double.isNaN(pixelColor.x) || Double.isInfinite(pixelColor.x) || pixelColor.x < 0.0) pixelColor.x = 0.0;
                     if (Double.isNaN(pixelColor.y) || Double.isInfinite(pixelColor.y) || pixelColor.y < 0.0) pixelColor.y = 0.0;
                     if (Double.isNaN(pixelColor.z) || Double.isInfinite(pixelColor.z) || pixelColor.z < 0.0) pixelColor.z = 0.0;
 
+                    // Highlight clamping
                     double luma = 0.2126 * pixelColor.x + 0.7152 * pixelColor.y + 0.0722 * pixelColor.z;
                     if (luma > maxClampIntensity) {
                         double scale = maxClampIntensity / luma;
@@ -112,16 +114,13 @@ public class Renderer {
                 double finalG = gSum / samplesPerPixel;
                 double finalB = bSum / samplesPerPixel;
 
-                // --- EXPOSICIÓN ---
-                // Se ha reducido la exposición global, 2.0 es demasiado alto para esta escena.
+                // Global exposure adjustments
                 double exposure = 0.5; 
                 finalR *= exposure;
                 finalG *= exposure;
                 finalB *= exposure;
 
-                // --- TONE MAPPING UNIFICADO CON ACES ---
-                // He eliminado el código de Hable/Uncharted 2 para usar la función ACES
-                // que habías definido previamente, respetando la configuración inicial.
+                // ACES Tone Mapping
                 if (toneMapping == ToneMapping.ACES) {
                     finalR = acesFilm(finalR);
                     finalG = acesFilm(finalG);
@@ -132,7 +131,7 @@ public class Renderer {
                 finalG = Math.max(0.0, Math.min(1.0, finalG));
                 finalB = Math.max(0.0, Math.min(1.0, finalB));
 
-                // --- CORRECCIÓN GAMMA ---
+                // Gamma correction (2.2)
                 double gamma = 1.0 / 2.2;
                 finalR = Math.pow(finalR, gamma);
                 finalG = Math.pow(finalG, gamma);
@@ -142,50 +141,48 @@ public class Renderer {
             }
             
             if (y % 100 == 0) {
-                System.out.println("Renderizadas " + y + " de " + imagewriter.height + " líneas...");
+                System.out.println("Rendered " + y + " of " + imagewriter.height + " lines...");
             }
         });
     }
 
+    // Process ray color recursively
     private void rayColor(Ray ray, Vector3d resultColor, double tMin, double tMax, int bounces, boolean debug) {
         if(bounces <= 0){
-            // --- CIELO CORREGIDO: DEGRADADO VIVO SIN LÍNEA BLANCA ---
-        Vector3d unitDir = new Vector3d(ray.direction.x, ray.direction.y, ray.direction.z);
-        unitDir.normalize();
-        
-        double t = Math.max(0.0, unitDir.y); 
-        
-        // Colores base normalizados en un rango similar para evitar la desaturación intermedia
-        Vector3d fuerteNaranja = new Vector3d(3.5, 0.7, 0.01);    // Naranja encendido y puro
-        Vector3d fuerteAzulMar = new Vector3d(0.01, 0.15, 2.2);   // Azul profundo tipo océano
-        
-        // Usamos una curva sigmoide (Smoothstep) para que la mezcla física sea drástica pero suave
-        double mezcla = t * t * (3.0 - 2.0 * t);
-        
-        // Interpolación directa de los componentes
-        double skyR = (1.0 - mezcla) * fuerteNaranja.x + mezcla * fuerteAzulMar.x;
-        double skyG = (1.0 - mezcla) * fuerteNaranja.y + mezcla * fuerteAzulMar.y;
-        double skyB = (1.0 - mezcla) * fuerteNaranja.z + mezcla * fuerteAzulMar.z;
-        
-        // Empuje extra en la base para simular la intensidad del sol poniente
-        if (t < 0.25) {
-            double factorIntensidad = Math.pow(1.0 - (t / 0.25), 2.0);
-            skyR += factorIntensidad * 2.0;
-            skyG += factorIntensidad * 0.3;
-        }
+            // Fast fallback background sky calculation
+            Vector3d unitDir = new Vector3d(ray.direction.x, ray.direction.y, ray.direction.z);
+            unitDir.normalize();
+            
+            double t = Math.max(0.0, unitDir.y); 
+            
+            Vector3d fuerteNaranja = new Vector3d(3.5, 0.7, 0.01);    
+            Vector3d fuerteAzulMar = new Vector3d(0.01, 0.15, 2.2);   
+            
+            double mezcla = t * t * (3.0 - 2.0 * t);
+            
+            double skyR = (1.0 - mezcla) * fuerteNaranja.x + mezcla * fuerteAzulMar.x;
+            double skyG = (1.0 - mezcla) * fuerteNaranja.y + mezcla * fuerteAzulMar.y;
+            double skyB = (1.0 - mezcla) * fuerteNaranja.z + mezcla * fuerteAzulMar.z;
+            
+            if (t < 0.25) {
+                double factorIntensidad = Math.pow(1.0 - (t / 0.25), 2.0);
+                skyR += factorIntensidad * 2.0;
+                skyG += factorIntensidad * 0.3;
+            }
 
-        if (unitDir.y < 0.0) {
-            skyR = 0.001; skyG = 0.005; skyB = 0.02; // El vacío debajo del horizonte
-        }
+            if (unitDir.y < 0.0) {
+                skyR = 0.001; skyG = 0.005; skyB = 0.02; 
+            }
 
-        resultColor.set(skyR, skyG, skyB);
-        return;
+            resultColor.set(skyR, skyG, skyB);
+            return;
         }
 
         HitRecord tempRecord = new HitRecord();
         boolean hittedSome = false;
         double tNear = tMax;
 
+        // Traverse BVH root for scene intersection
         if (worldRoot.intersect(ray, tMin, tNear, tempRecord)) {
             hittedSome = true;
             tNear = tempRecord.t;
@@ -195,14 +192,14 @@ public class Renderer {
             Vector3d n = new Vector3d(tempRecord.normal.x, tempRecord.normal.y, tempRecord.normal.z);
             double secondaryTMin = Math.max(tMin, 0.001);
             
-            // --- DETECTOR DE AGUA ---
+            // Procedural water surface detector
             boolean isWater = (tempRecord.material.diffuseColor.z > tempRecord.material.diffuseColor.x && n.y > 0.8);
             
             if (isWater) {
                 double x = tempRecord.point.x;
                 double z = tempRecord.point.z;
                 
-                // Fractales de ondas (fBm)
+                // fBm wave calculation
                 double distX = Math.cos(x * 0.3 + z * 0.1) * 0.25
                              + Math.cos(x * 0.8 - z * 0.4) * 0.15
                              + Math.cos(z * 2.2 + x * 1.5) * 0.08
@@ -227,7 +224,7 @@ public class Renderer {
                 System.out.println("Hit Point: " + tempRecord.point.x + ", " + tempRecord.point.y + ", " + tempRecord.point.z);
             }
 
-            // --- 1. BUMP MAPPING ---
+            // Normal Mapping (Bump Map)
             if (tempRecord.material.bumpMap != null && tempRecord.material.bumpMap.isLoaded()) {
                 Vector3d bumpColor = new Vector3d();
                 tempRecord.material.bumpMap.getColor(tempRecord.u, tempRecord.v, bumpColor);
@@ -264,7 +261,7 @@ public class Renderer {
                 n.normalize();
             }
 
-            // --- 2. COLOR DIFUSO ---
+            // Get surface diffuse base color
             double baseDiffuseR, baseDiffuseG, baseDiffuseB;
             if (isWater) {
                 baseDiffuseR = 0.0;
@@ -281,11 +278,8 @@ public class Renderer {
                 baseDiffuseG = edu.up.mateosanchez.materials.Texture.sRgbToLinear(tempRecord.material.diffuseColor.y);
                 baseDiffuseB = edu.up.mateosanchez.materials.Texture.sRgbToLinear(tempRecord.material.diffuseColor.z);
             }
-
-            // CORRECCIÓN: Se ha eliminado el bloque "Checkerboard Floor" para evitar
-            // sobreescribir la textura de madera del barco.
             
-            // --- 3. PROPIEDADES MATERIAL ---
+            // Material properties evaluation
             Vector3d currentEmissive = new Vector3d();
             tempRecord.material.getEffectiveEmissive(tempRecord.u, tempRecord.v, currentEmissive);
             
@@ -299,6 +293,7 @@ public class Renderer {
             
             double currentTransparency = 1.0 - tempRecord.material.getEffectiveAlpha(tempRecord.u, tempRecord.v);
 
+            // Set base color with ambient component
             double localR = baseDiffuseR * this.ambientIntensity + currentEmissive.x;
             double localG = baseDiffuseG * this.ambientIntensity + currentEmissive.y;
             double localB = baseDiffuseB * this.ambientIntensity + currentEmissive.z;
@@ -318,6 +313,7 @@ public class Renderer {
             HitRecord shadowRecord = new HitRecord();
             Vector3d halfwayBuffer = new Vector3d();
 
+            // Direct illumination calculation for all lights
             for (Light light : lights) {
                 light.getDirection(tempRecord.point, lightDirBuffer);
                 light.getColor(tempRecord.point, lightColorBuffer);
@@ -326,6 +322,7 @@ public class Renderer {
                 double nDotL = n.dot(lightDirBuffer);
                 if (nDotL <= 0.0) continue; 
 
+                // Setup shadow ray offset to prevent self-intersection
                 shadowRay.origin.set(
                     tempRecord.point.x + n.x * 0.001, 
                     tempRecord.point.y + n.y * 0.001, 
@@ -335,33 +332,29 @@ public class Renderer {
 
                 double shadowFactor = 1.0;
                 if (worldRoot.intersect(shadowRay, tMin, distanceToLight - 0.005, shadowRecord)) {
-                    double opacity =
-    shadowRecord.material.getEffectiveAlpha(
-        shadowRecord.u,
-        shadowRecord.v
-    );
-
-shadowFactor *= opacity;
+                    double opacity = shadowRecord.material.getEffectiveAlpha(shadowRecord.u, shadowRecord.v);
+                    shadowFactor *= opacity;
                 }
 
+                // Diffuse Blinn-Phong shading
                 double diffuseFactor = nDotL * shadowFactor;
                 localR += diffuseFactor * lightColorBuffer.x * baseDiffuseR;
                 localG += diffuseFactor * lightColorBuffer.y * baseDiffuseG;
                 localB += diffuseFactor * lightColorBuffer.z * baseDiffuseB;
 
+                // Specular Blinn-Phong shading
                 halfwayBuffer.set(lightDirBuffer.x + viewDirBuffer.x, lightDirBuffer.y + viewDirBuffer.y, lightDirBuffer.z + viewDirBuffer.z);
                 halfwayBuffer.normalize();
 
                 double specularFactor = Math.max(0.0, n.dot(halfwayBuffer));
                 double specularSpecular = Math.pow(specularFactor, currentShininess) * shadowFactor;
                 
-                // CORRECCIÓN: Se ha eliminado specularBoost = 5.0; era demasiado alto.
-                
                 localR += specularSpecular * lightColorBuffer.x * currentSpecular.x;
                 localG += specularSpecular * lightColorBuffer.y * currentSpecular.y;
                 localB += specularSpecular * lightColorBuffer.z * currentSpecular.z;
             }
 
+            // Setup face directions and indices of refraction for transmission
             double ndotI = ray.direction.dot(n);
             boolean frontFace = ndotI < 0.0;
             double faceNX = frontFace ? n.x : -n.x;
@@ -374,6 +367,7 @@ shadowFactor *= opacity;
             double fresnel = 0.0;
             boolean tir = false;
 
+            // Calculate Fresnel reflection factor
             if (currentTransparency > 0.0) {
                 double eta1 = frontFace ? 1.0 : tempRecord.material.ior;
                 double eta2 = frontFace ? tempRecord.material.ior : 1.0;
@@ -393,13 +387,13 @@ shadowFactor *= opacity;
             }
 
             double matReflect = tempRecord.material.reflectivity;
-            
             if (isWater) {
                 double r0 = 0.04; 
                 double fresnelWater = r0 + (1.0 - r0) * Math.pow(1.0 - cosI, 5.0);
                 matReflect = 0.15 + 0.80 * fresnelWater; 
             }
 
+            // Evaluate indirect mirror reflection
             if (matReflect > 0.0 || tir || (currentTransparency > 0.0 && frontFace && fresnel > 0.02)) {
                 double dotFace = ray.direction.x * faceNX + ray.direction.y * faceNY + ray.direction.z * faceNZ;
                 Vector3d reflectDirBuffer = new Vector3d(
@@ -419,6 +413,7 @@ shadowFactor *= opacity;
                 reflectR = reflectedColor.x; reflectG = reflectedColor.y; reflectB = reflectedColor.z;
             }
 
+            // Evaluate indirect refractive refraction (Snell's Law)
             if (currentTransparency > 0.0 && !tir) {
                 double eta1 = frontFace ? 1.0 : tempRecord.material.ior;
                 double eta2 = frontFace ? tempRecord.material.ior : 1.0;
@@ -458,6 +453,7 @@ shadowFactor *= opacity;
                 }
             }
 
+            // Blend everything together into the final pixel color
             resultColor.set(
                 (localR * matOpacity) + (reflectR * matReflect) + (refractR * matTrans),
                 (localG * matOpacity) + (reflectG * matReflect) + (refractG * matTrans),
@@ -466,106 +462,82 @@ shadowFactor *= opacity;
             return;
         }
 
-       Vector3d unitDir = new Vector3d(ray.direction.x, ray.direction.y, ray.direction.z);
-unitDir.normalize();
+        // ---------- BACKGROUND SUNSET GRADIENT ----------
+        Vector3d unitDir = new Vector3d(ray.direction.x, ray.direction.y, ray.direction.z);
+        unitDir.normalize();
 
-double t = Math.max(0.0, unitDir.y);
+        double t = Math.max(0.0, unitDir.y);
 
-// ---------- SKY : SUNSET GRADIENT ----------
+        Vector3d amarillo = new Vector3d(1.8, 1.5, 0.3);
+        Vector3d naranja  = new Vector3d(1.6, 0.7, 0.2);
+        Vector3d magenta  = new Vector3d(1.0, 0.4, 0.9);
+        Vector3d morado   = new Vector3d(0.5, 0.3, 1.3);
+        Vector3d azul     = new Vector3d(0.2, 0.6, 2.0);
+        Vector3d azulDeep = new Vector3d(0.03, 0.10, 0.6);
 
-// Colores calibrados
-Vector3d amarillo = new Vector3d(1.8, 1.5, 0.3);
-Vector3d naranja  = new Vector3d(1.6, 0.7, 0.2);
-Vector3d magenta  = new Vector3d(1.0, 0.4, 0.9);
-Vector3d morado   = new Vector3d(0.5, 0.3, 1.3);
-Vector3d azul     = new Vector3d(0.2, 0.6, 2.0);
-Vector3d azulDeep = new Vector3d(0.03, 0.10, 0.6);
+        double h1 = 0.04;
+        double h2 = 0.10;
+        double h3 = 0.20;
+        double h4 = 0.40;
+        double h5 = 0.80;
 
-double h1 = 0.04;
-double h2 = 0.10;
-double h3 = 0.20;
-double h4 = 0.40;
-double h5 = 0.80;
+        double skyR, skyG, skyB;
 
-double skyR;
-double skyG;
-double skyB;
+        // Smoothstep interpolation between gradient stops
+        if (t < h1) {
+            double m = t / h1;
+            m = m * m * (3.0 - 2.0 * m);
+            skyR = amarillo.x * (1.0 - m) + naranja.x * m;
+            skyG = amarillo.y * (1.0 - m) + naranja.y * m;
+            skyB = amarillo.z * (1.0 - m) + naranja.z * m;
+        } else if (t < h2) {
+            double m = (t - h1) / (h2 - h1);
+            m = m * m * (3.0 - 2.0 * m);
+            skyR = naranja.x * (1.0 - m) + magenta.x * m;
+            skyG = naranja.y * (1.0 - m) + magenta.y * m;
+            skyB = naranja.z * (1.0 - m) + magenta.z * m;
+        } else if (t < h3) {
+            double m = (t - h2) / (h3 - h2);
+            m = m * m * (3.0 - 2.0 * m);
+            skyR = magenta.x * (1.0 - m) + morado.x * m;
+            skyG = magenta.y * (1.0 - m) + morado.y * m;
+            skyB = magenta.z * (1.0 - m) + morado.z * m;
+        } else if (t < h4) {
+            double m = (t - h3) / (h4 - h3);
+            m = m * m * (3.0 - 2.0 * m);
+            skyR = morado.x * (1.0 - m) + azul.x * m;
+            skyG = morado.y * (1.0 - m) + azul.y * m;
+            skyB = morado.z * (1.0 - m) + azul.z * m;
+        } else if (t < h5) {
+            double m = (t - h4) / (h5 - h4);
+            m = m * m * (3.0 - 2.0 * m);
+            skyR = azul.x * (1.0 - m) + azulDeep.x * m;
+            skyG = azul.y * (1.0 - m) + azulDeep.y * m;
+            skyB = azul.z * (1.0 - m) + azulDeep.z * m;
+        } else {
+            skyR = azulDeep.x;
+            skyG = azulDeep.y;
+            skyB = azulDeep.z;
+        }
 
-if (t < h1)
-{
-    double m = t / h1;
-    m = m * m * (3.0 - 2.0 * m);
+        // Apply a horizon glow boost
+        double horizonBoost = Math.exp(-t * 8.0);
+        skyR += 0.25 * horizonBoost;
+        skyG += 0.18 * horizonBoost;
+        skyB += 0.05 * horizonBoost;
 
-    skyR = amarillo.x * (1.0 - m) + naranja.x * m;
-    skyG = amarillo.y * (1.0 - m) + naranja.y * m;
-    skyB = amarillo.z * (1.0 - m) + naranja.z * m;
-}
-else if (t < h2)
-{
-    double m = (t - h1) / (h2 - h1);
-    m = m * m * (3.0 - 2.0 * m);
+        double skyExposure = 0.35;
+        skyR *= skyExposure;
+        skyG *= skyExposure;
+        skyB *= skyExposure;
 
-    skyR = naranja.x * (1.0 - m) + magenta.x * m;
-    skyG = naranja.y * (1.0 - m) + magenta.y * m;
-    skyB = naranja.z * (1.0 - m) + magenta.z * m;
-}
-else if (t < h3)
-{
-    double m = (t - h2) / (h3 - h2);
-    m = m * m * (3.0 - 2.0 * m);
+        // Ground/under-horizon default void color
+        if (unitDir.y < 0.0) {
+            skyR = 0.001;
+            skyG = 0.005;
+            skyB = 0.02;
+        }
 
-    skyR = magenta.x * (1.0 - m) + morado.x * m;
-    skyG = magenta.y * (1.0 - m) + morado.y * m;
-    skyB = magenta.z * (1.0 - m) + morado.z * m;
-}
-else if (t < h4)
-{
-    double m = (t - h3) / (h4 - h3);
-    m = m * m * (3.0 - 2.0 * m);
-
-    skyR = morado.x * (1.0 - m) + azul.x * m;
-    skyG = morado.y * (1.0 - m) + azul.y * m;
-    skyB = morado.z * (1.0 - m) + azul.z * m;
-}
-else if (t < h5)
-{
-    double m = (t - h4) / (h5 - h4);
-    m = m * m * (3.0 - 2.0 * m);
-
-    skyR = azul.x * (1.0 - m) + azulDeep.x * m;
-    skyG = azul.y * (1.0 - m) + azulDeep.y * m;
-    skyB = azul.z * (1.0 - m) + azulDeep.z * m;
-}
-else
-{
-    skyR = azulDeep.x;
-    skyG = azulDeep.y;
-    skyB = azulDeep.z;
-}
-
-// Curva para dar más presencia al horizonte
-double horizonBoost = Math.exp(-t * 8.0);
-
-skyR += 0.25 * horizonBoost;
-skyG += 0.18 * horizonBoost;
-skyB += 0.05 * horizonBoost;
-
-// Exposición global - Esto está bien aquí porque solo afecta al cielo base
-double skyExposure = 0.35;
-
-skyR *= skyExposure;
-skyG *= skyExposure;
-skyB *= skyExposure;
-
-// Debajo del horizonte
-if (unitDir.y < 0.0)
-{
-    skyR = 0.001;
-    skyG = 0.005;
-    skyB = 0.02;
-}
-
-resultColor.set(skyR, skyG, skyB);
-        
+        resultColor.set(skyR, skyG, skyB);
     }
 }

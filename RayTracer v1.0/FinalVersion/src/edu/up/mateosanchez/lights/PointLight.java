@@ -5,7 +5,7 @@ import edu.up.mateosanchez.math.Vector3d;
 public class PointLight implements Light {
     public Vector3d position, color;
     
-    // Coeficientes de atenuación añadidos
+    // Attenuation coefficients
     public double constant = 1.0;
     public double linear = 0.09;
     public double quadratic = 0.032;
@@ -15,7 +15,6 @@ public class PointLight implements Light {
         this.color = color;
     }
 
-    // Nuevo constructor opcional por si deseas personalizar el alcance
     public PointLight(Vector3d position, Vector3d color, double constant, double linear, double quadratic) {
         this.position = position;
         this.color = color;
@@ -24,22 +23,24 @@ public class PointLight implements Light {
         this.quadratic = quadratic;
     }
 
+    // Calculate light color and intensity reaching a point using distance attenuation
     @Override
     public void getColor(Vector3d point, Vector3d resultColor) {
         double distance = this.getDistance(point);
         
-        // Evitar división por cero
+        // Prevent division by zero
         if (distance == 0.0) {
             resultColor.set(this.color.x, this.color.y, this.color.z);
             return;
         }
 
-        // Aplicamos la atenuación física real
+        // Apply distance falloff attenuation formula
         double atten = 1.0 / (this.constant + this.linear * distance + this.quadratic * distance * distance);
         
         resultColor.set(this.color.x * atten, this.color.y * atten, this.color.z * atten);
     }
 
+    // Get normalized direction vector pointing from the hit point to the light source position
     @Override
     public void getDirection(Vector3d point, Vector3d resultDirection) {
         double distance = this.getDistance(point);
@@ -53,6 +54,7 @@ public class PointLight implements Light {
         }
     }
 
+    // Calculate distance between the light source position and the specified point
     @Override
     public double getDistance(Vector3d point) {
         double dX = this.position.x - point.x;

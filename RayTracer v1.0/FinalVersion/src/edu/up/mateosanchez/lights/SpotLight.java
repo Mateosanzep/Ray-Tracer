@@ -4,10 +4,10 @@ import edu.up.mateosanchez.math.Vector3d;
 
 public class SpotLight implements Light {
     public Vector3d position;
-    public Vector3d direction; // normalized
+    public Vector3d direction; // Normalized
     public Vector3d color;
-    public double innerCutoff; // in degrees
-    public double outerCutoff; // in degrees
+    public double innerCutoff; // In degrees
+    public double outerCutoff; // In degrees
     
     private double cosInnerCutoff;
     private double cosOuterCutoff;
@@ -23,7 +23,7 @@ public class SpotLight implements Light {
         this.innerCutoff = innerCutoff;
         this.outerCutoff = outerCutoff;
         
-        // Normalize direction
+        // Normalize direction vector safely
         double mag = Math.sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
         if (mag > 0.0) {
             this.direction = new Vector3d(direction.x / mag, direction.y / mag, direction.z / mag);
@@ -42,9 +42,9 @@ public class SpotLight implements Light {
         this.quadratic = quadratic;
     }
 
+    // Get direction vector pointing from the hit point to the light source position
     @Override
     public void getDirection(Vector3d point, Vector3d resultDirection) {
-        // Direction from point to light source (standard for shading)
         double distance = this.getDistance(point);
         if (distance > 0.0) {
             resultDirection.set(
@@ -57,9 +57,10 @@ public class SpotLight implements Light {
         }
     }
 
+    // Calculate spotlight color and intensity considering cone falloff and distance attenuation
     @Override
     public void getColor(Vector3d point, Vector3d resultColor) {
-        // Vector from light to point
+        // Calculate vector from light to point
         double dX = point.x - this.position.x;
         double dY = point.y - this.position.y;
         double dZ = point.z - this.position.z;
@@ -70,30 +71,30 @@ public class SpotLight implements Light {
             return;
         }
         
-        // Normalize vector from light to point
         double dirToPointX = dX / distance;
         double dirToPointY = dY / distance;
         double dirToPointZ = dZ / distance;
         
-        // Dot product with spotlight direction
+        // Evaluate angle alignment using dot product
         double cosTheta = dirToPointX * this.direction.x + dirToPointY * this.direction.y + dirToPointZ * this.direction.z;
         
         double intensity = 0.0;
         if (cosTheta > this.cosInnerCutoff) {
             intensity = 1.0;
         } else if (cosTheta > this.cosOuterCutoff) {
-            // Smooth interpolation (smoothstep)
+            // Smoothstep interpolation for soft edge cone fallback
             double t = (cosTheta - this.cosOuterCutoff) / (this.cosInnerCutoff - this.cosOuterCutoff);
             intensity = t * t * (3.0 - 2.0 * t);
         }
         
-        // Attenuation
+        // Apply distance falloff attenuation
         double atten = 1.0 / (this.constant + this.linear * distance + this.quadratic * distance * distance);
         double finalIntensity = intensity * atten;
         
         resultColor.set(this.color.x * finalIntensity, this.color.y * finalIntensity, this.color.z * finalIntensity);
     }
 
+    // Calculate distance between the spotlight position and the specified point
     @Override
     public double getDistance(Vector3d point) {
         double dX = this.position.x - point.x;

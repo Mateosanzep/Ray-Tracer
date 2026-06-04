@@ -11,26 +11,26 @@ public class BVHNode implements Intersectable {
     private final Intersectable right;
     private final AABB boundingBox;
 
-    // Constructor que recibe tu lista de objetos y construye el árbol recursivamente
+    // Constructor to recursively build the BVH tree
     public BVHNode(List<Intersectable> objects, int start, int end) {
         this.boundingBox = new AABB();
 
-        // 1. Calculamos la caja gigante que envuelve a los objetos actuales
+        // Calculate the bounding box for all current objects
         AABB span = new AABB();
         for (int i = start; i < end; i++) {
             span.setFromMerge(span, objects.get(i).getBoundingBox());
         }
 
-        // 2. Decidimos sobre qué eje vamos a cortar (El más largo de la caja)
+        // Choose the longest axis to split along
         double dx = span.max.x - span.min.x;
         double dy = span.max.y - span.min.y;
         double dz = span.max.z - span.min.z;
         
-        int axis = 0; // Por defecto cortamos en X
-        if (dy > dx && dy > dz) axis = 1; // Cortamos en Y
-        else if (dz > dx && dz > dy) axis = 2; // Cortamos en Z
+        int axis = 0; 
+        if (dy > dx && dy > dz) axis = 1; 
+        else if (dz > dx && dz > dy) axis = 2; 
 
-        // 3. Creamos un comparador para ordenar los objetos sobre ese eje
+        // Create a comparator to sort objects along the chosen axis
         final int finalAxis = axis;
         Comparator<Intersectable> comparator = (a, b) -> {
             double minA = finalAxis == 0 ? a.getBoundingBox().min.x : (finalAxis == 1 ? a.getBoundingBox().min.y : a.getBoundingBox().min.z);
@@ -40,12 +40,10 @@ public class BVHNode implements Intersectable {
 
         int objectSpan = end - start;
 
-        // 4. Casos base y recursión para dividir la lista
+        // Base cases and recursive division of the list
         if (objectSpan == 1) {
-            // Si solo queda un objeto, se asigna a ambas ramas para terminar la hoja
             left = right = objects.get(start);
         } else if (objectSpan == 2) {
-            // Si quedan dos, los ordenamos y asignamos uno a cada rama
             if (comparator.compare(objects.get(start), objects.get(start + 1)) < 0) {
                 left = objects.get(start);
                 right = objects.get(start + 1);
@@ -54,14 +52,13 @@ public class BVHNode implements Intersectable {
                 right = objects.get(start);
             }
         } else {
-            // Si hay más de dos, ordenamos la sublista, la partimos a la mitad y aplicamos recursividad
             objects.subList(start, end).sort(comparator);
             int mid = start + objectSpan / 2;
             left = new BVHNode(objects, start, mid);
             right = new BVHNode(objects, mid, end);
         }
 
-        // 5. Finalmente, la caja de este nodo se fusiona abarcando a sus dos hijos
+        // Merge children bounding boxes into the parent node box
         this.boundingBox.setFromMerge(left.getBoundingBox(), right.getBoundingBox());
     }
 
@@ -72,16 +69,13 @@ public class BVHNode implements Intersectable {
 
     @Override
     public boolean intersect(Ray ray, double tMin, double tMax, HitRecord hitRecord) {
-        // Si el rayo no toca la caja del nodo, ignoramos toda esta rama al instante
+        // Early exit if the ray misses this node's bounding box
         if (!this.boundingBox.intersect(ray, tMin, tMax)) {
             return false;
         }
 
-        // Revisamos si golpeamos algo en la mitad izquierda
+        // Check intersection with left and right children
         boolean hitLeft = left.intersect(ray, tMin, tMax, hitRecord);
-        
-        // TRUCO DE RENDIMIENTO: Si golpeamos la izquierda, limitamos el tMax de la derecha
-        // al punto donde chocamos. Así evitamos calcular cosas que están "detrás".
         boolean hitRight = right.intersect(ray, tMin, hitLeft ? hitRecord.t : tMax, hitRecord);
 
         return hitLeft || hitRight;

@@ -10,11 +10,13 @@ public class DirectionalLight implements Light{
         this.color = color;
     }
 
+    // Directional lights have constant color intensity everywhere
     @Override
     public void getColor(Vector3d point, Vector3d resultColor) {
         resultColor.set(this.color.x, this.color.y, this.color.z);
     }
 
+    // Return the inverted light direction (pointing towards the light source)
     @Override
     public void getDirection(Vector3d point, Vector3d resultDirection) {
         double dX = (this.direction.x * -1.0);
@@ -23,10 +25,9 @@ public class DirectionalLight implements Light{
         resultDirection.set(dX, dY, dZ);
     }
 
+    // Directional lights are infinitely far away
     @Override
     public double getDistance(Vector3d point) {
         return Double.MAX_VALUE;
     }
-
-    
 }

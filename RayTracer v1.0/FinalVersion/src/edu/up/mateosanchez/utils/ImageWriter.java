@@ -14,19 +14,19 @@ public class ImageWriter {
     }
 
     public void setPixel(int x, int y, double r, double g, double b) {
-        // 1. Tone Mapping (Reinhard simple)
-        // Comprime valores infinitos al rango [0.0, 1.0] de manera suave
+        // 1. Reinhard Tone Mapping
+        // Maps infinite high-dynamic-range (HDR) light values into a soft [0.0, 1.0] display range
         r = r / (r + 1.0);
         g = g / (g + 1.0);
         b = b / (b + 1.0);
 
-        // 2. Corrección Gamma (1 / 2.2)
-        // Ajusta la imagen a la respuesta logarítmica natural del ojo humano y monitores
+        // 2. Gamma Correction (gamma = 2.2)
+        // Adjusts linear color space to match human visual perception and standard monitor hardware curves
         r = Math.pow(r, 1.0 / 2.2);
         g = Math.pow(g, 1.0 / 2.2);
         b = Math.pow(b, 1.0 / 2.2);
 
-        // 3. Conversión final con clamp de seguridad
+        // 3. Final Clamping and 8-bit Integer Conversion
         int red = (int) Math.max(0, Math.min(255, r * 255.99));
         int green = (int) Math.max(0, Math.min(255, g * 255.99));
         int blue = (int) Math.max(0, Math.min(255, b * 255.99));

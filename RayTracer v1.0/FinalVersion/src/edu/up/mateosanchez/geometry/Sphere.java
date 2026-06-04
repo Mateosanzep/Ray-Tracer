@@ -1,6 +1,6 @@
 package edu.up.mateosanchez.geometry;
 
-import edu.up.mateosanchez.acceleration.AABB; // Nueva importación obligatoria
+import edu.up.mateosanchez.acceleration.AABB; 
 import edu.up.mateosanchez.materials.Material;
 import edu.up.mateosanchez.math.Ray;
 import edu.up.mateosanchez.math.Vector3d;
@@ -10,7 +10,7 @@ public class Sphere implements Intersectable {
     public double radius;
     public double radiusSquared;
     public Material material;
-    private final AABB boundingBox; // Nueva variable para la caja protectora
+    private final AABB boundingBox; 
 
     public Sphere(Vector3d center, double radius, Material material) {
         this.center = center;
@@ -18,7 +18,7 @@ public class Sphere implements Intersectable {
         this.radiusSquared = radius * radius;
         this.material = material;
 
-        // Inicializamos la caja y calculamos sus límites usando el radio
+        // Initialize and calculate bounding box limits based on radius
         this.boundingBox = new AABB();
         this.boundingBox.min.set(center.x - radius, center.y - radius, center.z - radius);
         this.boundingBox.max.set(center.x + radius, center.y + radius, center.z + radius);
@@ -26,7 +26,7 @@ public class Sphere implements Intersectable {
 
     @Override
     public AABB getBoundingBox() {
-        return this.boundingBox; // Cumplimos con el contrato de la interfaz
+        return this.boundingBox; 
     }
 
     @Override
@@ -37,10 +37,14 @@ public class Sphere implements Intersectable {
         double a = (ray.direction.x * ray.direction.x + ray.direction.y * ray.direction.y + ray.direction.z * ray.direction.z);
         double b = (ocX * ray.direction.x + ocY * ray.direction.y + ocZ * ray.direction.z) * 2.0;
         double c = (ocX * ocX + ocY * ocY + ocZ * ocZ) - radiusSquared;
+        
+        // Discriminant calculation
         double d = b * b - (4 * a * c);
         if (d < 0){
             return false;
         }
+        
+        // Check closest intersection hit
         double t = (-b - Math.sqrt(d)) / (2.0 * a);
         if (t <= tMax && t >= tMin){
             hitRecord.t = t;
@@ -53,6 +57,7 @@ public class Sphere implements Intersectable {
             return true;
         }
         else{
+            // Check furthest intersection hit
             t = (-b + Math.sqrt(d)) / (2.0 * a);
             if (t <= tMax && t >= tMin){
                 hitRecord.t = t;

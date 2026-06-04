@@ -12,52 +12,50 @@ public class Texture {
 
     public Texture(String filePath) {
         try {
-            // ImageIO lee perfectamente tanto JPG como PNG
+            // ImageIO handles both JPG and PNG formats automatically
             image = ImageIO.read(new File(filePath));
             if (image != null) {
                 width = image.getWidth();
                 height = image.getHeight();
-                System.out.println("  Textura cargada: " + filePath + " (" + width + "x" + height + ")");
+                System.out.println("  Texture loaded: " + filePath + " (" + width + "x" + height + ")");
             } else {
-                System.err.println("Error al cargar la textura (formato no soportado): " + filePath);
+                System.err.println("Error loading texture (unsupported format): " + filePath);
             }
         } catch (IOException e) {
-            System.err.println("Error al cargar la textura: " + filePath);
+            System.err.println("Error loading texture: " + filePath);
         }
     }
 
-    // Verifica si la imagen se cargó correctamente
     public boolean isLoaded() {
         return image != null;
     }
 
-    // Calcula las coordenadas del píxel a partir de UV con envoltura (Tiling)
+    // Map U coordinate to image horizontal pixel space with repeating wrapping (Tiling)
     private int getPixelX(double u) {
-        // Envoltura: asegura que u esté entre 0.0 y 1.0 (ej: 2.5 -> 0.5)
         u = u - Math.floor(u);
         return (int) (u * (width - 1));
     }
 
+    // Map V coordinate to image vertical pixel space with repeating wrapping and axis inversion
     private int getPixelY(double v) {
-        // Envoltura: asegura que v esté entre 0.0 y 1.0
         v = v - Math.floor(v);
         
-        // Invertir V: Los archivos OBJ suelen tener la V invertida respecto a las imágenes 2D
+        // Invert V axis since OBJ specifications are inverted relative to standard 2D image coordinates
         v = 1.0 - v; 
         return (int) (v * (height - 1));
     }
 
-    // Devuelve el color de la textura en sRGB crudo (0.0 a 1.0)
+    // Retrieve raw non-linearized sRGB color from texture coordinates
     public void getColor(double u, double v, Vector3d colorBuffer) {
         if (image == null) {
-            colorBuffer.set(1.0, 0.0, 1.0); // Magenta chillón si hay error
+            colorBuffer.set(1.0, 0.0, 1.0); // Hot magenta fallback color on error
             return;
         }
 
         int x = getPixelX(u);
         int y = getPixelY(v);
 
-        //getRGB(x,y) extrae el entero de 32 bits independientemente de si es JPG o PNG
+        // Extract 32-bit integer packed ARGB color channel components
         int rgb = image.getRGB(x, y);
         double r = ((rgb >> 16) & 0xFF) / 255.0;
         double g = ((rgb >> 8) & 0xFF) / 255.0;
@@ -66,12 +64,12 @@ public class Texture {
         colorBuffer.set(r, g, b);
     }
 
-    // Convierte un canal de sRGB a espacio Lineal
+    // Convert a single color channel from sRGB non-linear curve to Linear space
     public static double sRgbToLinear(double c) {
         return (c <= 0.04045) ? (c / 12.92) : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
-    // Devuelve el color linealizado de la textura (sRGB -> Lineal) para color difuso/emisión
+    // Get color converted into linear color space for diffuse and emissive shading math
     public void getColorLinear(double u, double v, Vector3d colorBuffer) {
         getColor(u, v, colorBuffer);
         colorBuffer.set(
@@ -81,7 +79,7 @@ public class Texture {
         );
     }
 
-    // Devuelve un valor escalar (luminancia) para mapas de bump, shininess
+    // Convert color values into a scalar luminance value for scalar maps (shininess, bump)
     public double getValue(double u, double v) {
         if (image == null) {
             return 0.0;
@@ -95,15 +93,11 @@ public class Texture {
         double g = ((rgb >> 8) & 0xFF) / 255.0;
         double b = (rgb & 0xFF) / 255.0;
 
-        // Luminancia percibida (fórmula estándar ITU-R BT.601)
+        // Standard ITU-R BT.601 perceived luminance weighting formula
         return 0.299 * r + 0.587 * g + 0.114 * b;
     }
 
-    /**
-     * Devuelve el valor de transparencia real de la imagen.
-     * CORRECCIÓN: Se eliminó el parche que convertía el negro en transparente.
-     * Ahora lee directamente el canal Alfa del archivo (PNG o JPG).
-     */
+    // Read alpha transparency channel directly from image data bytes
     public double getAlpha(double u, double v) {
         if (image == null) {
             return 1.0; 
@@ -112,22 +106,19 @@ public class Texture {
         int x = getPixelX(u);
         int y = getPixelY(v);
 
-        // getRGB devuelve un entero de 32 bits: [ALPHA (8 bits) | RED (8) | GREEN (8) | BLUE (8)]
         int rgb = image.getRGB(x, y);
         
-        // Extraemos los 8 bits superiores (del 24 al 31) y aplicamos máscara
+        // Isolate the highest 8 bits containing the alpha data channel
         int alphaRaw = (rgb >> 24) & 0xFF;
         
-        // Convertimos a rango 0.0 (transparente) - 1.0 (opaco).
-        // Los JPGs siempre devolverán 255 (1.0) aquí porque no tienen canal Alfa.
+        // Standard JPG images lack an alpha layer and will consistently return 1.0 (fully opaque)
         return alphaRaw / 255.0;
     }
 
-    // Devuelve el valor escalar en coordenadas de píxel (usado internamente para bump mapping)
+    // Direct pixel coordinate evaluation for internal usage such as bump mapping calculations
     public double getValueAtPixel(int px, int py) {
         if (image == null) return 0.0;
         
-        // Clamping para asegurar que el píxel esté en rango
         px = Math.max(0, Math.min(width - 1, px));
         py = Math.max(0, Math.min(height - 1, py));
         

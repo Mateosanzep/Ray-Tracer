@@ -38,7 +38,7 @@ public class Scene {
         this.lights.add(light);
     }
 
-    // Importa un archivo OBJ completo con sus materiales autonómicos (.mtl) directamente a la escena
+    // Import OBJ mesh with its materials into the scene
     public void importObj(String objFilePath) {
         ArrayList<Intersectable> imported = ObjParser.parse(objFilePath);
         addObjects(imported);

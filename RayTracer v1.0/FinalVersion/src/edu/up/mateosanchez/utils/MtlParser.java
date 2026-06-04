@@ -24,9 +24,8 @@ public class MtlParser {
             double shininess = 10.0;
             double transparency = 0.0;
             double ior = 1.0;
-            int illum = 2; // Iluminación por defecto (illum 2 = difuso + especular, no espejo)
+            int illum = 2; // Default illumination model (illum 2 = diffuse + specular)
             
-            // Variables para almacenar las rutas de todas las texturas posibles
             String mapKdPath = null;
             String mapNsPath = null;
             String mapBumpPath = null;
@@ -41,29 +40,27 @@ public class MtlParser {
                 String type = tokens[0];
 
                 if (type.equals("newmtl")) {
-                    mapAlphaPath = null;
-                    // Guardar el material anterior si existe
+                    // Save previous material if it exists before initializing a new one
                     if (currentMatName != null) {
-                       Material mat = buildMaterial(
-    diffuseColor,
-    specularColor,
-    emissiveColor,
-    shininess,
-    transparency,
-    ior,
-    illum,
-    mapKdPath,
-    mapNsPath,
-    mapBumpPath,
-    mapAlphaPath,
-    bumpStrength,
-    parentDir
-);
-                
+                        Material mat = buildMaterial(
+                            diffuseColor,
+                            specularColor,
+                            emissiveColor,
+                            shininess,
+                            transparency,
+                            ior,
+                            illum,
+                            mapKdPath,
+                            mapNsPath,
+                            mapBumpPath,
+                            mapAlphaPath,
+                            bumpStrength,
+                            parentDir
+                        );
                         materials.put(currentMatName, mat);
                     }
                     
-                    // Resetear todas las variables para el nuevo material
+                    // Reset properties for the new material entry
                     currentMatName = tokens[1];
                     diffuseColor = new Vector3d(0.8, 0.8, 0.8);
                     specularColor = new Vector3d(0.0, 0.0, 0.0);
@@ -75,6 +72,7 @@ public class MtlParser {
                     mapKdPath = null;
                     mapNsPath = null;
                     mapBumpPath = null;
+                    mapAlphaPath = null;
                     bumpStrength = 1.0;
                     
                 } else if (type.equals("Kd")) {
@@ -94,56 +92,55 @@ public class MtlParser {
                 } else if (type.equals("illum")) {
                     illum = Integer.parseInt(tokens[1]);
                 } 
-                // --- EXTRACCIÓN DE TEXTURAS MÚLTIPLES ---
                 else if (type.equals("map_Kd")) {
                     mapKdPath = getTexturePath(tokens, 1);
                 } 
                 else if (type.equals("map_d")) {
-                     mapAlphaPath = getTexturePath(tokens, 1);
+                    mapAlphaPath = getTexturePath(tokens, 1);
                 }
                 else if (type.equals("map_Ns")) {
                     mapNsPath = getTexturePath(tokens, 1);
                 } 
                 else if (type.equals("map_Bump") || type.equals("bump")) {
                     int startIndex = 1;
-                    // Detectar si la línea incluye el modificador de fuerza del relieve (-bm)
+                    // Extract optional bump multiplier option flag (-bm strength)
                     if (tokens.length > 2 && tokens[1].equals("-bm")) {
                         bumpStrength = Double.parseDouble(tokens[2]);
-                        startIndex = 3; // El nombre del archivo empieza después del modificador
+                        startIndex = 3; 
                     }
                     mapBumpPath = getTexturePath(tokens, startIndex);
                 }
             }
 
-            // Guardar el último material del archivo
+            // Save the remaining final material definition in the file
             if (currentMatName != null) {
                 Material mat = buildMaterial(
-    diffuseColor,
-    specularColor,
-    emissiveColor,
-    shininess,
-    transparency,
-    ior,
-    illum,
-    mapKdPath,
-    mapNsPath,
-    mapBumpPath,
-    mapAlphaPath,
-    bumpStrength,
-    parentDir
+                    diffuseColor,
+                    specularColor,
+                    emissiveColor,
+                    shininess,
+                    transparency,
+                    ior,
+                    illum,
+                    mapKdPath,
+                    mapNsPath,
+                    mapBumpPath,
+                    mapAlphaPath,
+                    bumpStrength,
+                    parentDir
                 );
                 materials.put(currentMatName, mat);
             }
 
         } catch (Exception e) {
-            System.err.println("Error leyendo el archivo MTL: " + filePath + " - " + e.getMessage());
+            System.err.println("Error reading MTL file: " + filePath + " - " + e.getMessage());
             e.printStackTrace();
         }
 
         return materials;
     }
 
-    // Método auxiliar para reconstruir el nombre del archivo (por si tiene espacios)
+    // Helper method to reconstruct the file path string in case it contains spaces
     private static String getTexturePath(String[] tokens, int startIndex) {
         if (startIndex >= tokens.length) return null;
         StringBuilder sb = new StringBuilder();
@@ -154,7 +151,7 @@ public class MtlParser {
         return sb.toString();
     }
 
-    // Método seguro para cargar una textura, devolviendo null si el path está vacío
+    // Resolve texture file path relative to parent directory and load it safely
     private static Texture loadTexture(String path, File parentDir) {
         if (path == null) return null;
         String resolvedPath = path;
@@ -164,7 +161,7 @@ public class MtlParser {
         return new Texture(resolvedPath);
     }
 
-    // Ensamblaje del Material con todos sus mapas
+    // Assemble the Material structure and bind all parsed optional textures
     private static Material buildMaterial(
         Vector3d diffuseColor,
         Vector3d specularColor,
@@ -180,9 +177,8 @@ public class MtlParser {
         double bumpStrength,
         File parentDir
     ) {
-        
         double reflectivity = 0.0;
-        // Solo aplicar reflectividad de espejo si el modelo de iluminación lo especifica (illum >= 3)
+        // Apply ideal specular mirror reflection if illumination model allows (illum >= 3)
         if (illum >= 3) {
             reflectivity = (specularColor.x + specularColor.y + specularColor.z) / 3.0;
             if (reflectivity > 1.0) reflectivity = 1.0;
@@ -191,7 +187,7 @@ public class MtlParser {
 
         Material mat;
         
-        // 1. Cargar Color / Diffuse Map
+        // Initialize with either Diffuse Map or Solid color
         if (mapKdPath != null) {
             Texture texKd = loadTexture(mapKdPath, parentDir);
             mat = new Material(texKd, specularColor, shininess, reflectivity, transparency, ior);
@@ -199,19 +195,21 @@ public class MtlParser {
             mat = new Material(diffuseColor, specularColor, shininess, reflectivity, transparency, ior);
         }
         
-        // 2. Cargar Shininess Map (Ns)
+        // Attach optional specular roughness maps
         if (mapNsPath != null) {
             mat.shininessMap = loadTexture(mapNsPath, parentDir);
         }
         
-        // 3. Cargar Bump Map / Normal Map
+        // Attach optional surface normal distortion maps
         if (mapBumpPath != null) {
             mat.bumpMap = loadTexture(mapBumpPath, parentDir);
             mat.bumpStrength = bumpStrength;
         }
+        
+        // Attach optional alpha transparency maps
         if (mapAlphaPath != null) {
-        mat.alphaMap = loadTexture(mapAlphaPath, parentDir);
-}       
+            mat.alphaMap = loadTexture(mapAlphaPath, parentDir);
+        }       
 
         mat.emissiveColor = emissiveColor;
         return mat;

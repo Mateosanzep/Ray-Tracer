@@ -21,6 +21,7 @@ public class Ray {
         this.direction.normalize();
     }
     
+    // Evaluate the ray equation P(t) = O + t*D to compute the 3D position at distance t
     public void getPoint(double t, Vector3d result){
         double x = origin.x + direction.x * t;
         double y = origin.y + direction.y * t;
