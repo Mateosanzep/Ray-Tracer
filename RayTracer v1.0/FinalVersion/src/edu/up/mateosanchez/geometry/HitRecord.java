@@ -8,6 +8,8 @@ public class HitRecord {
     public Vector3d point;
     public Vector3d normal;
     public Material material;
+    public double u;
+    public double v;
 
     public HitRecord() {
         this.t = 0.0;

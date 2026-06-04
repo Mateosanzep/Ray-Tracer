@@ -1,21 +1,32 @@
 package edu.up.mateosanchez.geometry;
 
-import edu.up.mateosanchez.math.Vector3d;
+import edu.up.mateosanchez.acceleration.AABB; // Nueva importación obligatoria
 import edu.up.mateosanchez.materials.Material;
 import edu.up.mateosanchez.math.Ray;
+import edu.up.mateosanchez.math.Vector3d;
 
-
-public class Sphere implements Intersectable{
+public class Sphere implements Intersectable {
     public Vector3d center;
     public double radius;
     public double radiusSquared;
     public Material material;
+    private final AABB boundingBox; // Nueva variable para la caja protectora
 
     public Sphere(Vector3d center, double radius, Material material) {
         this.center = center;
         this.radius = radius;
         this.radiusSquared = radius * radius;
         this.material = material;
+
+        // Inicializamos la caja y calculamos sus límites usando el radio
+        this.boundingBox = new AABB();
+        this.boundingBox.min.set(center.x - radius, center.y - radius, center.z - radius);
+        this.boundingBox.max.set(center.x + radius, center.y + radius, center.z + radius);
+    }
+
+    @Override
+    public AABB getBoundingBox() {
+        return this.boundingBox; // Cumplimos con el contrato de la interfaz
     }
 
     @Override

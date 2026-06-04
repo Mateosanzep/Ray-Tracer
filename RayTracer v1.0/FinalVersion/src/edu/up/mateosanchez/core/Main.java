@@ -1,16 +1,11 @@
 package edu.up.mateosanchez.core;
 
-import java.util.ArrayList;
-
 import edu.up.mateosanchez.camera.Camera;
-import edu.up.mateosanchez.geometry.Intersectable;
-import edu.up.mateosanchez.geometry.Sphere;
 import edu.up.mateosanchez.math.Vector3d;
 import edu.up.mateosanchez.utils.ImageWriter;
+import edu.up.mateosanchez.lights.*;
+import edu.up.mateosanchez.geometry.Triangle;
 import edu.up.mateosanchez.materials.Material;
-import edu.up.mateosanchez.lights.Light;
-import edu.up.mateosanchez.lights.PointLight;
-import edu.up.mateosanchez.lights.DirectionalLight;
 
 public class Main {
     public static void main(String[] args) {
@@ -18,53 +13,50 @@ public class Main {
         int height = 2160;
         double aspectRatio = (double) width / height;
 
-        Vector3d lookFrom = new Vector3d(0.0, 0.0, 0.0);
-        double fov = 90.0;
+        // ---- CÁMARA IMPORTADA DESDE BLENDER ----
+        Vector3d lookFrom = new Vector3d(11.2860, 3.7314, -1.9612);
+        Vector3d lookAt = new Vector3d(10.3451, 3.3929, -1.9644);
+        Vector3d vUp = new Vector3d(-0.3385, 0.9410, -0.0016);
+        double fov = 23.21;
         double focalLength = 1.0;
-        double tMin = 0.001;
-        double tMax = Double.MAX_VALUE;
         
-        Camera camera = new Camera(lookFrom, fov, aspectRatio, focalLength);
-
+        Camera camera = new Camera(lookFrom, lookAt, vUp, fov, aspectRatio, focalLength);
         ImageWriter imageWriter = new ImageWriter(width, height);
 
-        Material shinyRed = new Material(
-            new Vector3d(1.0, 0.2, 0.2), new Vector3d(1.0, 1.0, 1.0), 100.0
-        );
-        Material shinyBlue = new Material(
-            new Vector3d(0.2, 0.2, 1.0), new Vector3d(0.8, 0.8, 0.8), 15.0
-        );
-        Material matteGray = new Material(
-            new Vector3d(0.5, 0.5, 0.5), new Vector3d(0.1, 0.1, 0.1), 4.0
-        );
+        Scene scene = new Scene(camera, 0.01);
+        
+        System.out.println("Cargando modelo...");
+        scene.importObj("objects/modelo.obj"); 
 
-        ArrayList<Intersectable> scene = new ArrayList<>();
-        scene.add(new Sphere(new Vector3d(-1.2, 0.0, -4.0), 1.0, shinyRed));
-        scene.add(new Sphere(new Vector3d(1.2, 0.5, -5.0), 1.2, shinyBlue));
-        scene.add(new Sphere(new Vector3d(0.0, -1001.0, -4.0), 1000.0, matteGray));
+        // ---- LUCES IMPORTADAS DESDE BLENDER ----
 
-        ArrayList<Light> lights = new ArrayList<>();
+        // --- AREA LIGHT: Area ---
+        Vector3d corner_Area = new Vector3d(-3.8882, 2.6986, 0.5831);
+        Vector3d u_Area = new Vector3d(7.7763, 0.0000, -0.0000);
+        Vector3d v_Area = new Vector3d(0.0000, 0.0000, -4.3721);
+        Vector3d color_Area = new Vector3d(1.000, 1.000, 1.000);
+        
+        Material mat_Area = new Material(new Vector3d(0.0, 0.0, 0.0), new Vector3d(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 1.0);
+        mat_Area.emissiveColor = color_Area;
+        
+        Vector3d v00_Area = corner_Area;
+        Vector3d v10_Area = new Vector3d(corner_Area.x + u_Area.x, corner_Area.y + u_Area.y, corner_Area.z + u_Area.z);
+        Vector3d v01_Area = new Vector3d(corner_Area.x + v_Area.x, corner_Area.y + v_Area.y, corner_Area.z + v_Area.z);
+        Vector3d v11_Area = new Vector3d(corner_Area.x + u_Area.x + v_Area.x, corner_Area.y + u_Area.y + v_Area.y, corner_Area.z + u_Area.z + v_Area.z);
+        
+        scene.addObject(new Triangle(v00_Area, v10_Area, v11_Area, mat_Area));
+        scene.addObject(new Triangle(v00_Area, v11_Area, v01_Area, mat_Area));
+        scene.addLight(new AreaLight(corner_Area, v_Area, u_Area, color_Area, 1.0, 0.05, 0.01));
 
-        Vector3d lightPos = new Vector3d(0.0, 5.0, -2.0);
-        Vector3d lightColor = new Vector3d(0.5, 0.5, 0.0);
-        lights.add(new PointLight(lightPos, lightColor));
+        Renderer renderer = new Renderer(camera, imageWriter, scene);
+        renderer.samplesPerPixel = 1;
 
-        Vector3d sunDirection = new Vector3d(-1.0, -1.0, -2.0); 
-        Vector3d sunColor = new Vector3d(0.2, 0.2, 0.25);
-        lights.add(new DirectionalLight(sunDirection, sunColor));
-
-
-        double ambientIntensity = 0.1;
-
-        Renderer renderer = new Renderer(camera, imageWriter, scene, lights, ambientIntensity);
-
+        System.out.println("Iniciando renderizado...");
         long startTime = System.currentTimeMillis();
         
-        renderer.render(tMin, tMax);
+        renderer.render(0.001, Double.MAX_VALUE);
         
-        long endTime = System.currentTimeMillis();
-        System.out.println("Rendering time: " + (endTime - startTime) + " ms");
-
-        imageWriter.save("Lights and Shading Sphere.png");
-        }
+        System.out.println("Tiempo de render: " + (System.currentTimeMillis() - startTime) + " ms");
+        imageWriter.save("Render_Modelo_Blender_3.png");
+    }
 }

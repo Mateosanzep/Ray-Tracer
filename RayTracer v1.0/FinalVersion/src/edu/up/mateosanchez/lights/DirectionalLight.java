@@ -11,7 +11,7 @@ public class DirectionalLight implements Light{
     }
 
     @Override
-    public void getColor(Vector3d resultColor) {
+    public void getColor(Vector3d point, Vector3d resultColor) {
         resultColor.set(this.color.x, this.color.y, this.color.z);
     }
 

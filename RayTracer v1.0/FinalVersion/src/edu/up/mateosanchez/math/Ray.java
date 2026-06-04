@@ -18,6 +18,7 @@ public class Ray {
 
     public void setDirection(Vector3d newDirection) {
         this.direction.setVector(newDirection);
+        this.direction.normalize();
     }
     
     public void getPoint(double t, Vector3d result){
